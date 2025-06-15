@@ -1,0 +1,19 @@
+/server/data/
+
+
+# Environment variables
+client/.env
+server/.env
+
+# Build outputs
+client/dist/
+client/build/
+server/build/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
