@@ -1,3 +1,9 @@
 fastapi
 uvicorn
 requests
+python-dotenv
+starlette
+pandas
+numpy
+scikit-learn
+boto3

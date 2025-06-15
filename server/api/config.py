@@ -2,9 +2,13 @@
 import requests
 from requests.adapters import HTTPAdapter, Retry
 import time
+from dotenv import load_dotenv
+import os
 
-TMDB_API_KEY = "085fb95ff095c18b3656683bf65e5311"
-TMDB_BASE_URL = "https://api.themoviedb.org/3"
+load_dotenv()
+
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+TMDB_BASE_URL = os.getenv("TMDB_BASE_URL")
 
 results_cache = {}
 cache_timeout = 300
