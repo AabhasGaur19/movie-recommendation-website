@@ -245,11 +245,11 @@
 // export default MovieDetails;
 
 
-
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 import MovieCard from "./MovieCard";
+import config from "../api/config";
 
 function MovieDetails() {
   const { id } = useParams();
@@ -260,37 +260,53 @@ function MovieDetails() {
   const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(true);
 
+  const fetchWithRetry = async (url, maxRetries = 3, delay = 2000) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await axios.get(url, { timeout: 30000 }); // 30s timeout
+        return response;
+      } catch (err) {
+        if (err.response && err.response.status === 503 && attempt < maxRetries) {
+          console.warn(`Attempt ${attempt} failed with 503. Retrying in ${delay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
+  };
+
   const fetchMovie = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:8000/movie/${id}`);
+      const response = await fetchWithRetry(`${config.API_BASE_URL}/api/movie/${id}`);
       setMovie(response.data);
       setError(null);
     } catch (err) {
       setError("Failed to fetch movie details. Please try again later.");
-      console.error(err);
+      console.error("Fetch movie error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-const fetchRecommendations = async () => {
-  try {
-    setRecLoading(true);
-    const response = await axios.get(`http://localhost:8000/recommend/${id}`);
-    setRecommendations(response.data);
-    setRecError(null);
-  } catch (err) {
-    if (err.response && err.response.status === 404) {
-      setRecError("No recommendations available for this movie.");
-    } else {
-      setRecError("Failed to fetch recommendations. Please try again later.");
+  const fetchRecommendations = async () => {
+    try {
+      setRecLoading(true);
+      const response = await fetchWithRetry(`${config.API_BASE_URL}/api/recommend/${id}`);
+      setRecommendations(response.data);
+      setRecError(null);
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        setRecError("No recommendations available for this movie.");
+      } else {
+        setRecError("Failed to fetch recommendations. Please try again later.");
+      }
+      console.error("Fetch recommendations error:", err);
+    } finally {
+      setRecLoading(false);
     }
-    console.error(err);
-  } finally {
-    setRecLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     fetchMovie();
@@ -433,7 +449,7 @@ const fetchRecommendations = async () => {
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              Loading recommendations...
+              Loading recommendations... (This may take a moment due to server startup)
             </div>
           ) : recError ? (
             <p className="text-red-400 text-center">{recError}</p>

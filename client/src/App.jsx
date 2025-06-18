@@ -4,6 +4,7 @@ import { Routes, Route } from "react-router-dom";
 import MovieCard from "./components/MovieCard";
 import MovieDetails from "./components/MovieDetails";
 import Navbar from "./components/Navbar";
+import config from "./api/config";
 
 function Home() {
   const [movies, setMovies] = useState([]);
@@ -17,9 +18,48 @@ function Home() {
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [page, setPage] = useState(1);
 
+  const resetHomeState = () => {
+    setSearchQuery("");
+    setIsSearching(false);
+    setSelectedGenre(null);
+    setSelectedCountry(null);
+    setPage(1);
+    setMovies([]);
+    console.log("Home state reset");
+  };
+
+  const fetchWithRetry = async (
+    url,
+    params = {},
+    maxRetries = 3,
+    delay = 2000
+  ) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await axios.get(url, { params, timeout: 30000 });
+        return response;
+      } catch (err) {
+        if (
+          err.response &&
+          err.response.status === 503 &&
+          attempt < maxRetries
+        ) {
+          console.warn(
+            `Attempt ${attempt} failed with 503. Retrying in ${delay}ms...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
+  };
+
   const fetchGenres = async () => {
     try {
-      const response = await axios.get("http://localhost:8000/genre/list");
+      const response = await fetchWithRetry(
+        `${config.API_BASE_URL}/api/genre/list`
+      );
       setGenres(response.data);
     } catch (err) {
       console.error("Failed to fetch genres:", err);
@@ -28,7 +68,9 @@ function Home() {
 
   const fetchCountries = async () => {
     try {
-      const response = await axios.get("http://localhost:8000/country/list");
+      const response = await fetchWithRetry(
+        `${config.API_BASE_URL}/api/country/list`
+      );
       setCountries(response.data);
     } catch (err) {
       console.error("Failed to fetch countries:", err);
@@ -38,16 +80,20 @@ function Home() {
   const fetchMovies = async (endpoint, params = {}, append = false) => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:8000${endpoint}`, {
-        params: { ...params, page },
-      });
+      const response = await fetchWithRetry(
+        `${config.API_BASE_URL}/api${endpoint}`,
+        {
+          ...params,
+          page,
+        }
+      );
       setMovies((prevMovies) =>
         append ? [...prevMovies, ...response.data] : response.data
       );
       setError(null);
     } catch (err) {
       setError("Failed to fetch movies. Please try again later.");
-      console.error(err);
+      console.error("Fetch movies error:", err);
     } finally {
       setLoading(false);
     }
@@ -57,17 +103,16 @@ function Home() {
     fetchGenres();
     fetchCountries();
   }, []);
-  
-  useEffect(() => {
-  if (isSearching && searchQuery.trim() === "") {
-    clearSearch();
-  }
-}, [searchQuery]);
-
 
   useEffect(() => {
-    setMovies([]); // Reset movies when filters change
-    setPage(1); // Reset page
+    if (isSearching && searchQuery.trim() === "") {
+      clearSearch();
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setMovies([]);
+    setPage(1);
     if (isSearching && searchQuery) {
       fetchMovies("/search", { query: searchQuery });
     } else if (selectedCountry) {
@@ -127,13 +172,14 @@ function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white font-sans">
       <Navbar
         genres={genres}
         countries={countries}
         onGenreSelect={handleGenreSelect}
         onCountrySelect={handleCountrySelect}
         onSearch={handleSearch}
+        onReset={resetHomeState}
       />
 
       <main className="container mx-auto px-4 py-10">
@@ -161,7 +207,9 @@ function Home() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <p>Loading movies...</p>
+            <p>
+              Loading movies... (This may take a moment due to server startup)
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
@@ -192,12 +240,12 @@ function Home() {
         )}
 
         {movies.length > 0 && !loading && (
-          <div className="text-center mt-8">
+          <div className="text-center mt-10">
             <button
               onClick={handleLoadMore}
-              className="px-6 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition duration-300"
+              className="px-8 py-3 text-lg font-semibold text-white bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-full shadow-lg transform transition-transform duration-300 hover:scale-105 hover:from-blue-500 hover:to-pink-500 focus:outline-none focus:ring-4 focus:ring-purple-400"
             >
-              Load More
+              🍿 More Flicks
             </button>
           </div>
         )}
